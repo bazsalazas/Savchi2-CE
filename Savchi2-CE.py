@@ -1,82 +1,62 @@
 # Imports
 import logging
 import logging.config
-import json
-import sys
+import configparser
 import time
 from ftplib import FTP
 
+from game import Game
+
 # Defines
-CONFIG_LOG  = "logging.conf"
-CONFIG_FILE = "config.conf"
-CONFIG_FILE_KEYS = ["IP", "user", "pwd", "period", "games", ]
+LOGGING_CONFIG  = "logging.ini"
+CONFIG_FILE = "config.ini"
+
 
 # Create logger based on config
-logging.config.fileConfig(CONFIG_LOG)
+logging.config.fileConfig(LOGGING_CONFIG)
 logger = logging.getLogger("Savchi2 CE")
 
 
 # Welcome message
 logger.info("Savchi2 CE started")
 
-# Try to load configuraiotn
-try:
-	# Try to open config file
-	logger.debug("Opening config file %s", CONFIG_FILE)
-	with open(CONFIG_FILE, "r") as  f:
-		# Load config from json
-		logger.debug("Loading config file")
-		conf = json.load(f)
-
-# Config could not be loaded, create default config
-except:
-	logger.debug("Config file open failed, creating default config")
-	conf = {}
-
-# Check for correct config file
-if list(conf.keys()) != CONFIG_FILE_KEYS:
-	conf = {
-		"IP": "169.254.13.37",
-		"user": "root",
-		"pwd": "clover",
-		"period": 1.0,
-		"games": "/var/games",
-		}
-
-	# Save new config file
-	with open(CONFIG_FILE, "w") as  f:
-		# Load config from json
-		logger.debug("Default config file created")
-		json.dump(conf, f)
+# Load configuration
+config = configparser.ConfigParser()
+config.read(CONFIG_FILE)
 
 # Do main loop
-logger.info("Connecting to FTP server through IP %s", conf["IP"])
+logger.info("Connecting to FTP server through IP %s", config["FTP"]["IP"])
 while True:
 	# Connect to FTP server
 	try:
-		logger.debug("Connecting to FTP server through IP %s", conf["IP"])
-		with FTP(conf["IP"]) as ftp:
+		logger.debug("Connecting to FTP server through IP %s", config["FTP"]["IP"])
+		with FTP(config["FTP"]["IP"]) as ftp:
 
 			# Log in to FTP server
-			logger.debug("Logging in to FTP server as user '%s' with password '%s'", conf["user"], conf["pwd"])
-			ftp.login(user=conf["user"], passwd=conf["pwd"])
+			logger.debug("Logging in to FTP server as user '%s' with password '%s'",
+						 config["FTP"]["user"], config["FTP"]["pwd"])
+			ftp.login(user=config["FTP"]["user"], passwd=config["FTP"]["pwd"])
 			logger.info("Connection succeeded")
 
-			# Get game catalog
+			# Get game ids
 			logger.debug("Reading game catalog")
-			games = ftp.nlst(conf["games"])
+			gids = ftp.nlst(config["Games"]["path"])
 
 			# Read game details
-			for game in games[0:2]:
+			games = []
+			for gid in gids:
 
-				# Read game data
-				data = ""
+				# Read game ctalog
+				catalog = bytes()
 				def cb(d):
-					global data
-					data = data + str(d)
-				ftp.retrbinary("RETR " + conf["games"] + "/" + 
-								game + "/" + game + ".desktop", cb)
-				print("%s: %s" % (game, data))
+					global catalog
+					catalog = catalog + d
+				ftp.retrbinary("RETR " + config["Games"]["catalog"].format(
+								path=config["Games"]["path"], ID=gid), cb)
+
+				# Create game object
+				games.append(Game(catalog.decode("utf-8")))
+				logger.debug("Game found: '%s'", games[-1].getTitle())
 			break
 	
 	# Exit on interruption
@@ -86,11 +66,11 @@ while True:
 	# Retry on other error - exceptions to catch should be defined
 	except Exception as e:
 		raise e
-		logger.debug("Operation failed, retry in %.1fs", conf["period"])
+		logger.debug("Operation failed, retry in %.1fs", config["Settings"]["poll peroid"])
 		
 		# Wait
 		try:
-			time.sleep(conf["period"])
+			time.sleep(config["Settings"]["poll peroid"])
 		
 		# Exit on interruption
 		except KeyboardInterrupt:
