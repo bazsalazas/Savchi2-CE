@@ -61,7 +61,7 @@ while True:
                     path=config["Games"]["path"], ID=gid), cb)
 
                 # Create game object
-                game = Game(data.decode("utf-8"))
+                game = Game(data.decode("utf-8"), logger)
                 games.append(game)
                 logger.info("Game found: '%s'", game.getTitle())
 

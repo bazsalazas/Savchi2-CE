@@ -8,7 +8,7 @@ import hashlib
 class Game(object):
     """ Game object stores game details read from consol """
 
-    def __init__(self, desktop_string):
+    def __init__(self, desktop_string, logger):
         # Call parent's constructor
         super(Game, self).__init__()
 
@@ -28,6 +28,9 @@ class Game(object):
         self.ram = self.config["Desktop Entry"]["path"] + "/cartridge.sram"
         self.ram_hash = self.config["Desktop Entry"]["path"] + \
             "/cartridge.sram.hash"
+
+        # Save logger
+        self.logger = logger
 
         # with open('example.ini', 'w') as configfile:
         #   self.config.write(configfile)
@@ -66,13 +69,23 @@ class Game(object):
             with open(dir + "/" + self.id + "/ram.srm", "wb") as f:
                 f.write(flist[1][0:-20])
 
-                # Use to calculate hash from ram content
-                # hash = hashlib.sha1(flist[1][0:-20])
-
         # Save rom
         if len(flist[2]) > 0:
             with open(dir + "/" + self.id + "/ram.sram.hash", "wb") as f:
                 f.write(flist[2])
+
+            # Check hash calculation
+            if len(flist[1]) > 0:
+                # Caclulate hash
+                h = hashlib.sha1(flist[1][0:-20])
+
+                # Verify hash
+                if h.digest() != flist[2]:
+                    self.logger.error("hash verify failed for game '%s'", self.id)
+
+                # Write hash to file
+                with open(dir + "/" + self.id + "/ram.srm.hash", "wb") as f:
+                    f.write(h.digest())
 
 
     """ String representation of the object """
