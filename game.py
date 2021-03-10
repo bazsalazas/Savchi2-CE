@@ -2,6 +2,7 @@
 import configparser
 import re
 import os
+import hashlib
 
 
 class Game(object):
@@ -62,11 +63,17 @@ class Game(object):
         if len(flist[1]) > 0:
             with open(dir + "/" + self.id + "/ram.sram", "wb") as f:
                 f.write(flist[1])
+            with open(dir + "/" + self.id + "/ram.srm", "wb") as f:
+                f.write(flist[1][0:-20])
+
+                # Use to calculate hash from ram content
+                # hash = hashlib.sha1(flist[1][0:-20])
 
         # Save rom
         if len(flist[2]) > 0:
             with open(dir + "/" + self.id + "/ram.sram.hash", "wb") as f:
                 f.write(flist[2])
+
 
     """ String representation of the object """
 
